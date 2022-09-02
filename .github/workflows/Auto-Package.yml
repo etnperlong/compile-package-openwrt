@@ -24,7 +24,7 @@ env:
   REMOTE_PORT: ${{ secrets.REMOTE_PORT }}
   TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
   TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-  TZ: Asia/Shanghai
+  TZ: Europe/London
 
 jobs:
   build:
@@ -231,7 +231,7 @@ jobs:
         mv -f openwrt/bin/targets/*/*/packages/base-files* packages/ || true
         # cp -Rf openwrt/bin/packages/*/packages/python3* packages/
         echo "FIRMWARE=$PWD/packages" >> $GITHUB_ENV
-        Emoji=("🎉" "🤞" "✨" "🎁" "🎈" "🎄" "🎨" "💋" "🍓" "🍕" "🍉" "💐" "🌴" "🚀" "🛸" "🗽" "⛅" "🌈" "🔥" "⛄" "🐶" "🏅" "🦄" "🐤")
+        Emoji=("📦")
         echo "EMOJI=${Emoji[$[$RANDOM % ${#Emoji[@]}]]}" >> $GITHUB_ENV
         if [[ $(ls -l openwrt/error* | grep "^-" | wc -l) -le 0 ]]; then
            echo "NAME=${Emoji[$[$RANDOM % ${#Emoji[@]}]]} ${{ env.date2 }} ${{ env.MTARGET }} ${{ env.EMOJI }}" >> $GITHUB_ENV
@@ -264,7 +264,7 @@ jobs:
       if: env.REPO_TOKEN && env.UPLOAD_FIRMWARE_FOR_RELEASE == 'true'
       continue-on-error: true
       run: |
-        echo -e "已经更新插件,默认24小时内对仓库拉取新代码的插件更新🎈:\n" >> release.txt
+        echo -e "Latest compiled packages are here! 🎈:\n" >> release.txt
         [ ${{ env.WETRANS }} ] && echo -e "[WeTransfer] (${{ env.WETRANS }} 🗽)\n" >> release.txt
         [ ${{ env.COWURL }} ] && echo -e "[奶牛上传] (${{ env.COWURL }} 🐮)\n" >> release.txt
         [ ${{ env.NOTICE }} ] && echo -e "${{ env.NOTICE }}" >> release.txt || true
@@ -303,6 +303,24 @@ jobs:
     #    REMOTE_USER: root
     #    TARGET: "/www/wwwroot/${{ secrets.REMOTE_HOST }}/packages/${{ env.MTARGET }}/"
 
+    - name: Deploy to Google Drive by rclone
+      if: env.UPLOAD_FIRMWARE_TO_GOOGLE_DRIVE == 'true'
+      continue-on-error: true
+      uses: wei/rclone@v1
+      env:
+        RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
+      with:
+        args: "copy packages/ ${{ env.RCLONE_GOOGLE_DRIVE_REMOTE }}:/packages/${{ env.MTARGET }}/"
+
+    - name: Deploy to OneDrive by rclone
+      if: env.UPLOAD_FIRMWARE_TO_ONEDRIVE == 'true'
+      continue-on-error: true
+      uses: wei/rclone@v1
+      env:
+        RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
+      with:
+        args: "copy packages/ ${{ env.RCLONE_ONEDRIVE_REMOTE }}:/packages/${{ env.MTARGET }}/"
+
     - name: WeChat notification
       continue-on-error: true
       if: env.SCKEY
@@ -318,15 +336,15 @@ jobs:
       uses: GitRML/delete-workflow-runs@main
       continue-on-error: true
       with:
-        retain_days: 1
-        keep_minimum_runs: 1
+        retain_days: 30
+        keep_minimum_runs: 3
 
     - name: Remove old Releases
       uses: dev-drprasad/delete-older-releases@master
       continue-on-error: true
       if: env.UPLOAD_FIRMWARE_FOR_RELEASE == 'true' && !cancelled()
       with:
-        keep_latest: 3
+        keep_latest: 7
         delete_tags: true
       env:
         GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
